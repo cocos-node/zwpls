@@ -304,6 +304,37 @@ restore_commands() {
     [ -f "$current_backup" ] && echo "原配置已备份到: $current_backup"
 }
 
+# 卸载命令
+cmd_uninstall() {
+    echo -e "${RED}⚠️  警告: 这将卸载 zwpls${NC}"
+    echo ""
+    echo -e "将删除:"
+    echo -e "  • 主程序: $(which zwpls 2>/dev/null || echo "/usr/local/bin/zwpls")"
+    echo -e "  • 配置目录: $CONFIG_DIR"
+    echo -e "  • 自动补全文件"
+    echo ""
+    
+    read -rp "确认卸载? [y/N]: " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "已取消"
+        return
+    fi
+    
+    echo -e "\n${YELLOW}正在卸载...${NC}"
+    
+    # 在线卸载
+    if command -v curl &> /dev/null; then
+        curl -sSL https://raw.githubusercontent.com/cocos-node/zwpls/main/uninstall.sh | bash -s -- -y
+    elif command -v wget &> /dev/null; then
+        wget -qO- https://raw.githubusercontent.com/cocos-node/zwpls/main/uninstall.sh | bash -s -- -y
+    else
+        echo -e "${RED}需要 curl 或 wget 来执行在线卸载${NC}"
+        echo "请手动运行:"
+        echo "  curl -sSL https://raw.githubusercontent.com/cocos-node/zwpls/main/uninstall.sh | bash"
+    fi
+}
+
+
 # 显示帮助
 show_help() {
     cat << EOF
@@ -321,6 +352,7 @@ ${YELLOW}命令:${NC}
   search <关键词>      搜索命令
   backup               备份命令
   restore <文件>       从备份恢复
+  uninstall        卸载
   help                 显示帮助
 
 ${YELLOW}示例:${NC}
@@ -333,6 +365,7 @@ ${YELLOW}示例:${NC}
   zwpls search "ssh"          # 搜索命令
   zwpls backup                 # 备份
   zwpls restore backup.json   # 恢复
+  zwpls uninstall             # 卸载
 
 ${YELLOW}提示:${NC}
   - 不带参数运行可交互式选择命令
@@ -376,6 +409,9 @@ main() {
             ;;
         "help"|"-h"|"--help")
             show_help
+            ;;
+        uninstall)
+            cmd_uninstall
             ;;
         *)
             # 没有子命令，尝试执行

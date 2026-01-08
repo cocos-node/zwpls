@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh - 类似宝塔面板的一键安装脚本
+# install.sh
 # 自动安装版本，无需用户交互
 
 set -e

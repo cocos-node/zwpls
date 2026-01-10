@@ -97,6 +97,27 @@ add_command() {
 
 # 执行命令
 execute_command() {
+
+    local skip_confirm=0
+    local quiet_mode=0
+    
+    # 检查是否有 -y 或 --yes 参数
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -y|--yes|--skip-confirm)
+                skip_confirm=1
+                shift
+                ;;
+            -q|--quiet)
+                quiet_mode=1
+                shift
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    
     [ $# -eq 0 ] && { list_commands; return; }
     
     local name="$1"
@@ -110,14 +131,7 @@ execute_command() {
     cmd=$(jq -r --arg name "$name" '.[] | select(.name == $name) | .command' "$COMMANDS_FILE" 2>/dev/null)
     
     if [ -z "$cmd" ] || [ "$cmd" = "null" ]; then
-        log_error "未找到命令: $name"
-        
-        # 显示相似命令
-        local similar
-        similar=$(jq -r --arg name "$name" '.[] | select(.name | contains($name)) | .name' "$COMMANDS_FILE" 2>/dev/null | head -5)
-        
-        [ -n "$similar" ] && echo -e "${CYAN}相似命令:${NC}\n$similar"
-        
+        [ $quiet_mode -eq 0 ] && log_error "未找到命令: $name"
         return 1
     fi
     
@@ -125,15 +139,27 @@ execute_command() {
     local full_cmd="$cmd"
     [ -n "$extra_args" ] && full_cmd="$cmd $extra_args"
     
-    echo -e "${GREEN}执行: $name${NC}"
-    echo -e "${CYAN}命令: $full_cmd${NC}"
-    echo -e "${MAGENTA}------------------${NC}"
+    if [ $quiet_mode -eq 0 ]; then
+        echo -e "${GREEN}执行: $name${NC}"
+        echo -e "${CYAN}命令: $full_cmd${NC}"
+        echo -e "${MAGENTA}------------------${NC}"
+    fi
     
-    # 确认执行
-    if [ -t 0 ]; then
+    # 确认执行逻辑
+    if [ $skip_confirm -eq 1 ]; then
+        # 跳过确认
+        :
+    elif [ -t 0 ]; then
+        # 交互式终端，询问确认
         read -rp "是否执行? [Y/n]: " -n 1 confirm
         echo
-        [[ "$confirm" =~ ^[Nn]$ ]] && { log_warn "已取消"; return; }
+        [[ "$confirm" =~ ^[Nn]$ ]] && { 
+            [ $quiet_mode -eq 0 ] && log_warn "已取消"
+            return
+        }
+    else
+        # 非交互式终端，默认执行
+        :
     fi
     
     # 执行命令
